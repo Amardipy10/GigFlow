@@ -20,10 +20,21 @@ const Home = () => {
   const fetchGigs = async () => {
     try {
       setLoading(true);
+      setError(''); // Reset error state before fetching
       const data = await getGigs(search);
-      setGigs(data.gigs);
+      
+      // FIX: Defensive check to ensure data and data.gigs exist
+      // This prevents "Cannot read properties of null (reading 'status')"
+      if (data && data.gigs) {
+        setGigs(data.gigs);
+      } else {
+        setGigs([]); // Fallback to empty array if response format is unexpected
+      }
     } catch (err) {
-      setError('Failed to load gigs');
+      console.error('Fetch error details:', err);
+      // Set a user-friendly error message
+      setError('The server is taking a moment to wake up. Please wait or refresh the page.');
+      setGigs([]); // Ensure gigs is an empty array so .length doesn't crash
     } finally {
       setLoading(false);
     }
@@ -96,10 +107,13 @@ const Home = () => {
         {/* Results Count */}
         <div className="mb-8 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Latest Opportunities</h2>
-          <span className="text-sm font-semibold text-gray-400">{gigs.length} results found</span>
+          <span className="text-sm font-semibold text-gray-400">
+            {/* Added optional chaining ?. to safely read length */}
+            {gigs?.length || 0} results found
+          </span>
         </div>
 
-        {gigs.length === 0 ? (
+        {(!gigs || gigs.length === 0) ? (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100">
             <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +148,8 @@ const Home = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Posted By</p>
-                    <p className="text-sm font-bold text-gray-700">{gig.ownerId.name}</p>
+                    {/* Added optional chaining gig.ownerId?.name to be safe */}
+                    <p className="text-sm font-bold text-gray-700">{gig.ownerId?.name || 'Anonymous'}</p>
                   </div>
                 </div>
 
