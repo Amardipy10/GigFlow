@@ -20,21 +20,20 @@ const Home = () => {
   const fetchGigs = async () => {
     try {
       setLoading(true);
-      setError(''); // Reset error state before fetching
+      setError(''); 
       const data = await getGigs(search);
       
-      // FIX: Defensive check to ensure data and data.gigs exist
-      // This prevents "Cannot read properties of null (reading 'status')"
+      // VITAL FIX: Check if data exists and contains the gigs array
       if (data && data.gigs) {
         setGigs(data.gigs);
       } else {
-        setGigs([]); // Fallback to empty array if response format is unexpected
+        setGigs([]); 
       }
     } catch (err) {
       console.error('Fetch error details:', err);
-      // Set a user-friendly error message
-      setError('The server is taking a moment to wake up. Please wait or refresh the page.');
-      setGigs([]); // Ensure gigs is an empty array so .length doesn't crash
+      // This happens if the Render server is still waking up
+      setError('Backend is waking up from sleep. Please wait 30 seconds and refresh.');
+      setGigs([]); 
     } finally {
       setLoading(false);
     }
@@ -108,7 +107,6 @@ const Home = () => {
         <div className="mb-8 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Latest Opportunities</h2>
           <span className="text-sm font-semibold text-gray-400">
-            {/* Added optional chaining ?. to safely read length */}
             {gigs?.length || 0} results found
           </span>
         </div>
@@ -127,34 +125,33 @@ const Home = () => {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {gigs.map((gig) => (
               <div
-                key={gig._id}
+                key={gig?._id}
                 className="group bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm hover:shadow-2xl hover:border-indigo-100 transition-all duration-300 flex flex-col"
               >
                 <div className="mb-4">
                   <div className="flex justify-between items-start gap-4 mb-3">
                     <h3 className="text-xl font-black text-gray-900 leading-tight group-hover:text-indigo-600 transition-colors">
-                      {gig.title}
+                      {gig?.title}
                     </h3>
                   </div>
                   <p className="text-gray-500 text-sm line-clamp-3 leading-relaxed">
-                    {gig.description}
+                    {gig?.description}
                   </p>
                 </div>
                 
                 <div className="mt-auto pt-6 border-t border-gray-50 flex items-center justify-between mb-6">
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Budget</p>
-                    <p className="text-2xl font-black text-indigo-600 tracking-tighter">₹{gig.budget}</p>
+                    <p className="text-2xl font-black text-indigo-600 tracking-tighter">₹{gig?.budget}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Posted By</p>
-                    {/* Added optional chaining gig.ownerId?.name to be safe */}
-                    <p className="text-sm font-bold text-gray-700">{gig.ownerId?.name || 'Anonymous'}</p>
+                    <p className="text-sm font-bold text-gray-700">{gig?.ownerId?.name || 'Anonymous'}</p>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => handleBidClick(gig._id)}
+                  onClick={() => handleBidClick(gig?._id)}
                   className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-indigo-600 shadow-lg shadow-gray-100 hover:shadow-indigo-100 transition-all active:scale-[0.98]"
                 >
                   Place Bid
