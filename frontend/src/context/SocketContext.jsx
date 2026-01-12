@@ -1,4 +1,3 @@
-// frontend/src/context/SocketContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
@@ -19,23 +18,33 @@ export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Only connect if user is logged in
-    if (user) {
-      const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-      
-      const newSocket = io(socketUrl, {
-        withCredentials: true
+    let newSocket;
+
+    if (user && user.id) {
+      // 1. Get the base URL and strip the /api suffix if it exists
+      let socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      socketUrl = socketUrl.replace(/\/api$/, ''); 
+
+      // 2. Initialize socket with improved production settings
+      newSocket = io(socketUrl, {
+        withCredentials: true,
+        // Adding transports helps avoid handshake errors on hosting providers like Render
+        transports: ['websocket', 'polling'],
+        // Auto-reconnect if Render spins down the server
+        reconnectionAttempts: 5,
+        reconnectionDelay: 5000,
       });
 
       newSocket.on('connect', () => {
-        console.log('Socket connected:', newSocket.id);
-        // Register user with their userId
+        console.log('✅ Socket connected:', newSocket.id);
         newSocket.emit('register', user.id);
       });
 
-      // Listen for hire notifications
+      newSocket.on('connect_error', (err) => {
+        console.error('❌ Socket Connection Error:', err.message);
+      });
+
       newSocket.on('hired', (data) => {
-        console.log('Received hire notification:', data);
         const notification = {
           id: Date.now(),
           ...data,
@@ -45,22 +54,21 @@ export const SocketProvider = ({ children }) => {
         setNotifications(prev => [notification, ...prev]);
       });
 
-      // Listen for socket errors
       newSocket.on('error', (data) => {
-        console.error('Socket error:', data.message);
+        console.error('⚠️ Server emitted socket error:', data.message);
       });
 
-      newSocket.on('disconnect', () => {
-        console.log('Socket disconnected');
+      newSocket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
       });
 
       setSocket(newSocket);
 
       return () => {
-        newSocket.close();
+        if (newSocket) newSocket.close();
       };
     } else {
-      // Disconnect socket when user logs out
+      // Cleanup if user logs out
       if (socket) {
         socket.close();
         setSocket(null);
