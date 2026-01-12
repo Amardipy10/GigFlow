@@ -1,23 +1,38 @@
 import axios from 'axios';
 
-// Get the URL from environment variables
-const baseURL = import.meta.env.VITE_API_URL;
+// 1. Get the URL from environment variables
+// Using a fallback directly to the Render URL ensures that if Vercel fails 
+// to load the Env Var, it still points to the correct backend.
+const baseURL = import.meta.env.VITE_API_URL || 'https://gigflow-icoc.onrender.com/api';
 
 const api = axios.create({
-  // FIX: Removed the || '/api' fallback. 
-  // In production, Vite needs the absolute URL to find your Render backend.
   baseURL: baseURL,
   withCredentials: true 
 });
 
-// DEBUG HELPER: This interceptor logs the exact URL being called in the console.
-// This will help you see if a request is going to Vercel (wrong) or Render (right).
+// 2. REQUEST INTERCEPTOR (Debug Helper)
 api.interceptors.request.use(config => {
-  if (import.meta.env.DEV) {
-    console.log(`🚀 API Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
-  }
+  // Logs the full URL in the console so you can verify it's hitting Render, not Vercel
+  console.log(`📡 Sending ${config.method.toUpperCase()} to: ${config.baseURL}${config.url}`);
   return config;
 });
+
+// 3. RESPONSE INTERCEPTOR (The fix for your TypeError)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // This specific check prevents "Cannot read properties of null (reading 'status')"
+    // It handles cases where the server is down, sleeping, or the URL is wrong.
+    if (!error.response) {
+      console.error("❌ Network Error: The server is not responding. It might be sleeping on Render.");
+      return Promise.reject({
+        message: "Server is waking up. Please refresh in 30 seconds.",
+        status: 0
+      });
+    }
+    return Promise.reject(error);
+  }
+);
 
 // --- Auth APIs ---
 export const register = async (name, email, password) => {
@@ -37,12 +52,11 @@ export const logout = async () => {
 
 // --- Gigs APIs ---
 export const getGigs = async (search = '') => {
-  // Added try/catch safety within the service layer
   try {
     const { data } = await api.get('/gigs', { params: { search } });
     return data;
   } catch (error) {
-    console.error("Error in getGigs service:", error);
+    // Re-throwing so Home.jsx catch block can catch it
     throw error;
   }
 };
