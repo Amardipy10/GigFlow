@@ -1,9 +1,9 @@
 // frontend/src/pages/BidPage.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { createBid, getBidsForGig, hireBid } from '../services/api';
+// IMPORT getGigs from your existing api service
+import { createBid, getBidsForGig, hireBid, getGigs } from '../services/api'; 
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
 
 const BidPage = () => {
   const { gigId } = useParams();
@@ -26,25 +26,42 @@ const BidPage = () => {
   const fetchGigAndBids = async () => {
     try {
       setLoading(true);
-      const { data: gigData } = await axios.get(`/api/gigs?search=`, { withCredentials: true });
-      const foundGig = gigData.gigs.find(g => g._id === gigId);
+      setError('');
       
-      if (!foundGig) {
-        setError('Gig not found');
-        return;
-      }
+      // FIX: Use your getGigs service instead of raw axios.
+      // This ensures the request uses the absolute Render URL.
+      const data = await getGigs(''); 
       
-      setGig(foundGig);
-      setIsOwner(foundGig.ownerId._id === user.id);
+      if (data && data.gigs) {
+        const foundGig = data.gigs.find(g => g._id === gigId);
+        
+        if (!foundGig) {
+          setError('Gig not found');
+          setLoading(false);
+          return;
+        }
+        
+        setGig(foundGig);
+        
+        // SAFE CHECK: Use optional chaining ?. to prevent crash if data is incomplete
+        const ownerId = foundGig.ownerId?._id || foundGig.ownerId;
+        const currentUserId = user?.id || user?._id;
+        
+        const checkOwner = ownerId === currentUserId;
+        setIsOwner(checkOwner);
 
-      if (foundGig.ownerId._id === user.id) {
-        try {
-          const { bids: fetchedBids } = await getBidsForGig(gigId);
-          setBids(fetchedBids);
-        } catch (err) {}
+        if (checkOwner) {
+          try {
+            const bidResponse = await getBidsForGig(gigId);
+            setBids(bidResponse.bids || []);
+          } catch (err) {
+            console.error("Error fetching bids:", err);
+          }
+        }
       }
     } catch (err) {
-      setError('Failed to load gig details');
+      console.error("Page Load Error:", err);
+      setError('Failed to load gig details. Server might be waking up.');
     } finally {
       setLoading(false);
     }
@@ -85,6 +102,16 @@ const BidPage = () => {
     );
   }
 
+  // If gig is still null after loading (due to error), show error state
+  if (!gig) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-20 text-center">
+        <p className="text-red-500 font-bold mb-4">{error || 'Gig data unavailable'}</p>
+        <button onClick={() => navigate('/')} className="text-indigo-600 underline">Back to Home</button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       {/* Gig Header Card */}
@@ -101,7 +128,9 @@ const BidPage = () => {
                 }`}>
                   {gig.status}
                 </span>
-                <span className="text-xs text-gray-400 font-medium tracking-tight">Posted by {gig.ownerId.name}</span>
+                <span className="text-xs text-gray-400 font-medium tracking-tight">
+                  Posted by {gig.ownerId?.name || 'User'}
+                </span>
               </div>
               <h1 className="text-3xl font-black text-gray-900 leading-tight mb-4">{gig.title}</h1>
               <p className="text-gray-600 leading-relaxed max-w-2xl">{gig.description}</p>
@@ -132,10 +161,10 @@ const BidPage = () => {
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">Received Proposals</h2>
-            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">{bids.length} Bids</span>
+            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">{bids?.length || 0} Bids</span>
           </div>
 
-          {bids.length === 0 ? (
+          {!bids || bids.length === 0 ? (
             <div className="text-center py-12">
               <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,11 +181,11 @@ const BidPage = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
-                          {bid.freelancerId.name.charAt(0)}
+                          {bid.freelancerId?.name?.charAt(0) || 'U'}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900">{bid.freelancerId.name}</p>
-                          <p className="text-xs text-gray-400">{bid.freelancerId.email}</p>
+                          <p className="font-bold text-gray-900">{bid.freelancerId?.name || 'User'}</p>
+                          <p className="text-xs text-gray-400">{bid.freelancerId?.email}</p>
                         </div>
                       </div>
                       <p className="text-sm text-gray-600 italic leading-relaxed">"{bid.message}"</p>
