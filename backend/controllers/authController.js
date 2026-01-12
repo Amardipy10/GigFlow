@@ -13,13 +13,13 @@ const generateToken = (userId) => {
 const setTokenCookie = (res, token) => {
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true, // Always true in production
-    sameSite: 'none', // Required for cross-origin cookies
-    maxAge: 7 * 24 * 60 * 60 * 1000
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 };
 
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -54,7 +54,7 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -92,11 +92,17 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.logout = async (req, res) => {
+const logout = async (req, res) => {
   try {
     res.clearCookie('token');
     res.json({ message: 'Logout successful' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
+};
+
+module.exports = {
+  register,
+  login,
+  logout
 };
